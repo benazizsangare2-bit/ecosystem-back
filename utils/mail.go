@@ -30,5 +30,5 @@ func SendEmail(toEmail, subject, htmlBody string) error {
 }
 
 func FrontendBaseURL() string {
-	return GetEnv("FRONTEND_URL", "http://localhost:3000")
+	return GetEnv("FRONTEND_URL", "https://ecosystem-front.vercel.app")
 }
