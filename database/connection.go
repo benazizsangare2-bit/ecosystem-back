@@ -112,6 +112,8 @@ type Database struct {
 
 var DB *sql.DB
 
+const SCHEMA_NAME = "environment_reports"
+
 func ConnectDatabase() {
 	// Check for Render DATABASE_URL first (production)
 	databaseURL := os.Getenv("DATABASE_URL")
@@ -120,9 +122,33 @@ func ConnectDatabase() {
 		// Production mode (Render)
 		log.Println("Connecting using DATABASE_URL (production mode)")
 		
+		// First, connect without search_path to create schema
 		db, err := sql.Open("postgres", databaseURL)
 		if err != nil {
 			log.Fatal("Failed to connect to database:", err)
+		}
+		
+		// Create the schema if it doesn't exist
+		_, err = db.Exec(fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", SCHEMA_NAME))
+		if err != nil {
+			log.Printf("Warning: Could not create schema: %v", err)
+		} else {
+			log.Printf("Schema '%s' ready", SCHEMA_NAME)
+		}
+		
+		// Now reconnect with search_path set to the schema
+		db.Close()
+		
+		// Add search_path to the connection string
+		if strings.Contains(databaseURL, "?") {
+			databaseURL = databaseURL + "&search_path=" + SCHEMA_NAME
+		} else {
+			databaseURL = databaseURL + "?search_path=" + SCHEMA_NAME
+		}
+		
+		db, err = sql.Open("postgres", databaseURL)
+		if err != nil {
+			log.Fatal("Failed to connect to database with schema:", err)
 		}
 		
 		DB = db
@@ -179,12 +205,19 @@ func ConnectDatabase() {
 func (database *Database) InitDatabase() {
 	// Only run migrations in development or if specifically enabled
 	if os.Getenv("RUN_MIGRATIONS") != "false" {
+		// Set the search path for the current connection
+		_, err := database.DB.Exec(fmt.Sprintf("SET search_path TO %s, public", SCHEMA_NAME))
+		if err != nil {
+			log.Printf("Warning: Could not set search_path: %v", err)
+		}
+		
 		tableQueries := GetTableQueries()
 		for _, query := range tableQueries {
 			_, err := database.DB.Exec(query)
 			if err != nil {
 				// Ignore "already exists" errors
-				if !strings.Contains(err.Error(), "already exists") {
+				if !strings.Contains(err.Error(), "already exists") &&
+				   !strings.Contains(err.Error(), "duplicate key") {
 					log.Printf("Migration warning: %v", err)
 				}
 			}
