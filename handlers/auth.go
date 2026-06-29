@@ -247,6 +247,45 @@ func ResetPassword(c *gin.Context) {
 	utils.Success(c, http.StatusOK, nil, "Password reset successfully")
 }
 
+func DeleteAccount(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+	jti := middleware.GetJTI(c)
+
+	result, err := database.DB.Exec(`
+		UPDATE users SET deleted_at = NOW(), status = 'deleted', updated_at = NOW()
+		WHERE user_id = $1 AND deleted_at IS NULL`,
+		userID,
+	)
+	if err != nil {
+		utils.InternalError(c, "Failed to delete account")
+		return
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		utils.NotFound(c, "Account not found or already deleted")
+		return
+	}
+
+	if jti != "" {
+		exp, ok := c.Get(middleware.ContextTokenExp)
+		expiry := time.Now().Add(time.Duration(utils.GetEnvAsInt("JWT_EXPIRY_HOURS", 24)) * time.Hour)
+		if ok {
+			if t, ok := exp.(time.Time); ok {
+				expiry = t
+			}
+		}
+		_ = utils.BlacklistToken(jti, expiry)
+	}
+
+	_, _ = database.DB.Exec(`
+		INSERT INTO audit_logs (admin_id, action, target_type, target_id, ip_address, user_agent)
+		VALUES ($1, 'delete_account', 'user', $2, $3, $4)`,
+		userID, userID, c.ClientIP(), c.Request.UserAgent(),
+	)
+
+	utils.Success(c, http.StatusOK, nil, "Your account has been deactivated. Your reports are no longer publicly associated with you.")
+}
+
 func ChangePassword(c *gin.Context) {
 	var req models.ChangePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

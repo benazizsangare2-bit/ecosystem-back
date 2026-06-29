@@ -47,6 +47,7 @@ func Setup(router *gin.Engine) {
 			auth.POST("/logout", handlers.Logout)
 			auth.POST("/change-password", handlers.ChangePassword)
 			auth.GET("/profile", handlers.GetProfile)
+			auth.DELETE("/profile", handlers.DeleteAccount)
 
 			auth.POST("/reports", handlers.CreateReport)
 			auth.GET("/reports/user", handlers.GetUserReports)
@@ -55,6 +56,13 @@ func Setup(router *gin.Engine) {
 			auth.DELETE("/reports/:id", handlers.DeleteReport)
 			auth.POST("/reports/:id/like", handlers.ToggleLike)
 			auth.POST("/reports/:id/comments", handlers.AddComment)
+			 // NEW: Report data for printing/export
+   			auth.GET("/reports/:id/full", handlers.GetReportData)
+   			auth.GET("/reports/:id/statistics", handlers.GetReportStatistics)
+			auth.GET("/reports/:id/history", handlers.GetReportHistory)
+    	    auth.GET("/reports/:id/attachments", handlers.GetAttachments)
+    	    auth.GET("/reports/:id/printable", handlers.GetPrintableReport)
+    	    auth.POST("/reports/:id/print-preview", handlers.PrintPreview)
 
 			admin := auth.Group("/admin")
 			admin.Use(middleware.AdminRequired())
@@ -64,6 +72,16 @@ func Setup(router *gin.Engine) {
 				admin.GET("/stats", handlers.GetAdminStats)
 				admin.GET("/auditlogs", handlers.GetAuditLogs)
     			admin.GET("/auditlogs/actions", handlers.GetAuditLogActions)
+    			admin.GET("/users", handlers.ListUsers)
+    			admin.DELETE("/users/:id", handlers.AdminDeleteUser)
+                admin.GET("/system-report", handlers.GetSystemReport)
+                admin.GET("/system-report/pdf", handlers.GetSystemReportPDF)
+			// NEW: Admin dashboard with charts
+   			admin.GET("/dashboard/stats", handlers.GetDashboardStats)
+   			admin.GET("/dashboard/trends", handlers.GetWeeklyTrends)
+   			admin.GET("/dashboard/categories", handlers.GetCategoryDistribution)
+			// New download as pdf
+			admin.GET("/reports/:id/pdf", handlers.DownloadReportPDF)
 			}
 		}
 	}

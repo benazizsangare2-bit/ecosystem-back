@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: postgres123
       POSTGRES_DB: ecosystem
     volumes:
-      - ./postgres-data:/var/lib/postgresql/data
+      - ecosystem-data:/home/securityman/wslcodingprojects/jonathan/environment
     ports:
       - "5433:5432"
 
@@ -34,3 +34,5 @@ services:
       - postgres
     ports:
       - "3030:3030"
+volumes:
+  ecosystem-data:

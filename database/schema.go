@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS users (
     last_login                TIMESTAMP WITH TIME ZONE,
     created_at                TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at                TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    status                    TEXT DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'banned')),
+    status                    TEXT DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'banned', 'deleted')),
     deleted_at                TIMESTAMP WITH TIME ZONE  -- Soft delete
 )`,
 
@@ -134,13 +134,32 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_token_blacklist_expires ON token_blacklist(expires_at);
 `,
 
+`-- Report history/timeline
+CREATE TABLE IF NOT EXISTS report_history (
+    history_id            SERIAL PRIMARY KEY,
+    report_id             INTEGER NOT NULL REFERENCES reports(report_id) ON DELETE CASCADE,
+    status                TEXT NOT NULL,
+    changed_by            INTEGER REFERENCES users(user_id),
+    changed_by_name       TEXT,
+    notes                 TEXT,
+    created_at            TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+)
+`,
+
 `-- Migrations for existing databases
 ALTER TABLE reports ADD COLUMN IF NOT EXISTS admin_notes TEXT;
 ALTER TABLE reports ADD COLUMN IF NOT EXISTS duplicate_warning BOOLEAN DEFAULT FALSE;
 ALTER TABLE reports ADD COLUMN IF NOT EXISTS thumbnail_urls TEXT[];
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE;
 `,
 
+`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_status_check;
+ALTER TABLE users ADD CONSTRAINT users_status_check CHECK (status IN ('active', 'suspended', 'banned', 'deleted'));
+`,
 `CREATE EXTENSION IF NOT EXISTS pg_trgm;`,
 //CREATE INDEX idx_reports_description_trgm ON reports USING gin(description gin_trgm_ops);
+
+`CREATE INDEX IF NOT EXISTS idx_report_history_report_id ON report_history(report_id)`,
+`CREATE INDEX IF NOT EXISTS idx_report_history_created_at ON report_history(created_at)`,
 	}
 }

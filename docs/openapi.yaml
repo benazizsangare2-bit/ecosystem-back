@@ -312,6 +312,26 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Profile]
+      summary: Delete own account (soft delete)
+      operationId: deleteAccount
+      security:
+        - bearerAuth: []
+      description: Sets deleted_at and status='deleted'. Logs audit entry. Blacklists current token.
+      responses:
+        "200":
+          description: Account deactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageSuccess"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/reports:
     post:
@@ -709,6 +729,84 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /api/admin/users:
+    get:
+      tags: [Admin]
+      summary: List all users with status filter
+      operationId: adminListUsers
+      security:
+        - bearerAuth: []
+      description: Requires admin role. Supports filtering by status (active, suspended, banned, deleted).
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/UserStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Paginated user list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          users:
+                            type: array
+                            items:
+                              $ref: "#/components/schemas/User"
+                          page:
+                            type: integer
+                          limit:
+                            type: integer
+                          total:
+                            type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/admin/users/{id}:
+    delete:
+      tags: [Admin]
+      summary: Soft delete a user account
+      operationId: adminDeleteUser
+      security:
+        - bearerAuth: []
+      description: Sets deleted_at and status='deleted'. Logs audit entry. Admin cannot delete own account.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: User ID to delete
+      responses:
+        "200":
+          description: User deactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -835,7 +933,7 @@ components:
 
     UserStatus:
       type: string
-      enum: [active, suspended, banned]
+      enum: [active, suspended, banned, deleted]
 
     ReportCategory:
       type: string
@@ -1013,6 +1111,14 @@ components:
         duplicate_of:
           type: integer
           nullable: true
+        duplicate_of_title:
+          type: string
+          nullable: true
+          description: Title of the original report if this is a duplicate
+        duplicate_of_address:
+          type: string
+          nullable: true
+          description: Address of the original report if this is a duplicate
         duplicate_warning:
           type: boolean
         admin_notes:
@@ -1028,6 +1134,19 @@ components:
         updated_at:
           type: string
           format: date-time
+        reporter_first_name:
+          type: string
+          description: First name of the report author
+        reporter_last_name:
+          type: string
+          description: Last name of the report author
+        reporter_email:
+          type: string
+          format: email
+          description: Email of the report author
+        reporter_phone_number:
+          type: string
+          description: Phone number of the report author
 
     ReportSummary:
       type: object
