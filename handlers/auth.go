@@ -6,11 +6,13 @@ import (
 	"ecosystem/middleware"
 	"ecosystem/models"
 	"ecosystem/utils"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -88,15 +90,23 @@ func VerifyEmail(c *gin.Context) {
 			utils.BadRequest(c, "token is required")
 			return
 		}
-		token = req.Token
+		token = strings.TrimSpace(req.Token)
 	}
 	verifyEmailWithToken(c, token)
 }
 
 func verifyEmailWithToken(c *gin.Context, token string) {
 	claims, err := utils.ParseToken(token)
-	if err != nil || claims.Purpose != utils.PurposeEmailVerify {
-		utils.BadRequest(c, "Invalid or expired verification link")
+	if err != nil {
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			utils.BadRequest(c, "This verification link has expired. Please register again.")
+			return
+		}
+		utils.BadRequest(c, "Invalid verification link. Please check the link and try again.")
+		return
+	}
+	if claims.Purpose != utils.PurposeEmailVerify {
+		utils.BadRequest(c, "Invalid verification link. Please check the link and try again.")
 		return
 	}
 
